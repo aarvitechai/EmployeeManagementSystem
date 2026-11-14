@@ -23,6 +23,7 @@ import Link from "next/link";
 import { useState } from "react";
 
 import Pagination from "@/components/Pagination";
+import { useCurrentUser } from "@/features/auth/useCurrentUser";
 import { useGetDepartmentsQuery } from "@/features/departments/departmentsApi";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { getErrorMessage } from "@/services/apiErrors";
@@ -60,6 +61,10 @@ export default function EmployeeList() {
   const [sortBy, setSortBy] = useState<EmployeeSortBy>("lastName");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [page, setPage] = useState(1);
+
+  // Only admins/HR may create or edit; others (managers) just view the list.
+  // UI only: the API enforces the same rule (403) on every write.
+  const { canManage } = useCurrentUser();
 
   // Wait until the user pauses typing before searching (see the hook).
   const search = useDebouncedValue(searchInput.trim(), 300);
@@ -186,12 +191,14 @@ export default function EmployeeList() {
           </select>
         </label>
 
-        <Link
-          href="/employees/new"
-          className="rounded bg-zinc-900 px-4 py-2 text-center text-sm text-white dark:bg-zinc-100 dark:text-black"
-        >
-          New employee
-        </Link>
+        {canManage && (
+          <Link
+            href="/employees/new"
+            className="rounded bg-zinc-900 px-4 py-2 text-center text-sm text-white dark:bg-zinc-100 dark:text-black"
+          >
+            New employee
+          </Link>
+        )}
       </div>
 
       {/* Error state. `role="alert"` makes screen readers announce it. */}
@@ -278,9 +285,11 @@ export default function EmployeeList() {
                   <td className="px-3 py-2 text-right">
                     {/* Template literal builds /employees/5/edit. The hidden
                         text tells screen-reader users WHICH employee. */}
-                    <Link href={`/employees/${employee.id}/edit`} className="hover:underline">
-                      Edit<span className="sr-only"> {employee.fullName}</span>
-                    </Link>
+                    {canManage && (
+                      <Link href={`/employees/${employee.id}/edit`} className="hover:underline">
+                        Edit<span className="sr-only"> {employee.fullName}</span>
+                      </Link>
+                    )}
                   </td>
                 </tr>
               ))

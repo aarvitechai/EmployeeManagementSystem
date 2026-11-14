@@ -10,6 +10,12 @@
 #
 # For PUT / PATCH, first GET the record and copy its "rowVersion" value into
 # the request body (optimistic concurrency, see ConcurrencyExtensions.cs).
+#
+# AUTHENTICATION: every endpoint except /health requires login. Run the
+# "Log in" request below first; the editor keeps the returned cookie and
+# sends it with the following requests. Write requests (POST/PUT/PATCH/DELETE)
+# also need the header "X-EMS-CSRF: 1" (CSRF protection; already included).
+# Demo accounts are created from user secrets, see backend/README.md.
 # -----------------------------------------------------------------------------
 
 @host = http://localhost:5131
@@ -17,6 +23,26 @@
 
 ### Health check (also checks the database connection)
 GET {{host}}/health
+
+### ---------------------------------------------------------------- Auth
+
+### Log in (sets the ems_auth cookie). Use a demo account from user secrets.
+POST {{api}}/auth/login
+X-EMS-CSRF: 1
+Content-Type: application/json
+
+{
+  "email": "admin@ems.local",
+  "password": "PASTE_PASSWORD_HERE",
+  "rememberMe": false
+}
+
+### Who am I? (401 if not logged in)
+GET {{api}}/auth/me
+
+### Log out (removes the cookie)
+POST {{api}}/auth/logout
+X-EMS-CSRF: 1
 
 ### ---------------------------------------------------------------- Departments
 
@@ -31,6 +57,7 @@ GET {{api}}/departments/1
 
 ### Create a department
 POST {{api}}/departments
+X-EMS-CSRF: 1
 Content-Type: application/json
 
 {
@@ -41,6 +68,7 @@ Content-Type: application/json
 
 ### Update a department (paste the current rowVersion from a GET)
 PUT {{api}}/departments/1
+X-EMS-CSRF: 1
 Content-Type: application/json
 
 {
@@ -63,6 +91,7 @@ GET {{api}}/employees/1
 
 ### Create an employee
 POST {{api}}/employees
+X-EMS-CSRF: 1
 Content-Type: application/json
 
 {
@@ -78,6 +107,7 @@ Content-Type: application/json
 
 ### Update an employee (paste the current rowVersion from a GET)
 PUT {{api}}/employees/1
+X-EMS-CSRF: 1
 Content-Type: application/json
 
 {
@@ -92,6 +122,7 @@ Content-Type: application/json
 
 ### Change status: Active | OnLeave | Terminated (terminationDate needed for Terminated)
 PATCH {{api}}/employees/1/status
+X-EMS-CSRF: 1
 Content-Type: application/json
 
 {
@@ -103,7 +134,9 @@ Content-Type: application/json
 ### Soft-delete a department (only if it has NO employees). Paste the current
 ### rowVersion from a GET; "=" must be URL-encoded as %3D (e.g. AAAAAAAAB9E%3D).
 DELETE {{api}}/departments/1?rowVersion=PASTE_URL_ENCODED_ROWVERSION_HERE
+X-EMS-CSRF: 1
 
 ### Soft-delete an employee (not allowed while they manage others). Paste the
 ### URL-encoded rowVersion from a GET ("=" -> %3D).
 DELETE {{api}}/employees/1?rowVersion=PASTE_URL_ENCODED_ROWVERSION_HERE
+X-EMS-CSRF: 1

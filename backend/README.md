@@ -65,7 +65,7 @@ All endpoints are under `/api/v1`. Try them with `src/EMS.Api/EMS.Api.http`.
   409 conflict (duplicate, invalid state, or concurrent edit).
 - **Concurrency:** every response has a `rowVersion`. Send it back in PUT/PATCH bodies; if someone
   else saved the record in the meantime, the API returns 409 instead of overwriting their change.
-- **Not yet secured:** authentication and authorization arrive in Phase 6.
+- **Login required:** every endpoint except `/health` needs a logged-in user (see below).
 
 ### Request flow
 
@@ -74,6 +74,44 @@ HTTP -> Controller (EMS.Api) -> Service + Validator (EMS.Application) -> Entity 
                                         |
                                         +-> IEmsDbContext -> EmsDbContext (EMS.Infrastructure) -> SQL Server
 ```
+
+## Authentication and authorization
+
+ASP.NET Core Identity with an **HttpOnly, SameSite=Strict cookie** (`ems_auth`). No tokens are
+stored in the browser's JavaScript. See `src/EMS.Api/Security/AuthSetup.cs`.
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| POST | `/auth/login` | `{ email, password, rememberMe }`, sets the cookie, returns `{ email, roles }` |
+| POST | `/auth/logout` | Removes the cookie (204) |
+| GET | `/auth/me` | Current user, or 401 |
+
+- **Roles:** `SystemAdmin`, `HRAdmin`, `Manager`, `Employee`.
+  - Read employees/departments: SystemAdmin, HRAdmin, Manager (policy `ViewOrganization`).
+  - Create / edit / status / delete: SystemAdmin, HRAdmin (policy `ManageOrganization`).
+  - Everything else requires a logged-in user (fallback policy).
+- **401 vs 403:** 401 = not logged in, 403 = logged in but not allowed.
+- **CSRF:** POST/PUT/PATCH/DELETE must send the header `X-EMS-CSRF: 1`, otherwise 403.
+- **Brute force protection:** 5 wrong passwords lock the account for 15 minutes; login is
+  rate-limited to 10 attempts per minute per IP (429).
+- **Same site required:** because the cookie is SameSite=Strict, the frontend and API must share a
+  registrable domain (e.g. `app.example.com` + `api.example.com`; locally both are `localhost`).
+- **Not yet done:** linking a login to an Employee record, and limiting managers to their own team.
+
+### Demo accounts (Development)
+
+At startup the API creates the four roles and any accounts listed under `SeedUsers` in
+configuration. Passwords are kept in **.NET user secrets** (outside the repository), never in git:
+
+```bash
+dotnet user-secrets list --project src/EMS.Api           # show configured seed users
+dotnet user-secrets set "SeedUsers:0:Email" "admin@ems.local" --project src/EMS.Api
+dotnet user-secrets set "SeedUsers:0:Password" "<a strong password>" --project src/EMS.Api
+dotnet user-secrets set "SeedUsers:0:Role" "SystemAdmin" --project src/EMS.Api
+```
+
+Passwords need at least 10 characters with upper case, lower case, a digit and a symbol. Existing
+accounts are never changed by the seeder.
 
 ## Database (EF Core + SQL Server)
 

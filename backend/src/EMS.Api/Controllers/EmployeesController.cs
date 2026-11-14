@@ -11,13 +11,17 @@
 //
 // See DepartmentsController.cs for explanations of the attributes used here.
 //
-// TODO (Phase 6, authentication): HR/Admin for create/update/status; managers
-// only see their own team (resource-based authorization).
+// Authorization: reading needs ViewOrganization (admin, HR, manager); every
+// change needs ManageOrganization (admin, HR).
+// TODO (later): managers should only see their OWN team. That needs the
+// login account linked to an Employee record (resource-based authorization).
 // -----------------------------------------------------------------------------
 
+using EMS.Api.Security;
 using EMS.Application.Employees;
 using EMS.Contracts.Common;
 using EMS.Contracts.Employees;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EMS.Api.Controllers;
@@ -25,6 +29,7 @@ namespace EMS.Api.Controllers;
 [ApiController]
 [Route("api/v1/employees")]
 [Produces("application/json")]
+[Authorize(Policy = Policies.ViewOrganization)]
 public sealed class EmployeesController(IEmployeeService employees) : ControllerBase
 {
     // GET /api/v1/employees?page=1&pageSize=20&search=asha&status=Active&sortBy=hireDate&sortDirection=desc
@@ -48,6 +53,7 @@ public sealed class EmployeesController(IEmployeeService employees) : Controller
     }
 
     [HttpPost]
+    [Authorize(Policy = Policies.ManageOrganization)]
     [ProducesResponseType<EmployeeResponse>(StatusCodes.Status201Created)]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
@@ -59,6 +65,7 @@ public sealed class EmployeesController(IEmployeeService employees) : Controller
     }
 
     [HttpPut("{id:int}")]
+    [Authorize(Policy = Policies.ManageOrganization)]
     [ProducesResponseType<EmployeeResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
@@ -72,6 +79,7 @@ public sealed class EmployeesController(IEmployeeService employees) : Controller
     // get their own endpoint because they follow lifecycle rules and, later,
     // will need different permissions than editing contact details.
     [HttpPatch("{id:int}/status")]
+    [Authorize(Policy = Policies.ManageOrganization)]
     [ProducesResponseType<EmployeeResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
@@ -85,6 +93,7 @@ public sealed class EmployeesController(IEmployeeService employees) : Controller
     // Soft delete. The concurrency token is in the query string because
     // DELETE requests have no body (see DepartmentsController.Delete).
     [HttpDelete("{id:int}")]
+    [Authorize(Policy = Policies.ManageOrganization)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]

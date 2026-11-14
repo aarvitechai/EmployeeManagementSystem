@@ -13,11 +13,15 @@
 // in DepartmentService (EMS.Application). Errors are thrown as exceptions
 // and turned into Problem Details by GlobalExceptionHandler.
 //
-// TODO (Phase 6, authentication): restrict to HR/Admin with [Authorize].
+// Authorization: reading needs the ViewOrganization policy (admin, HR,
+// manager); every change needs ManageOrganization (admin, HR). When both a
+// class-level and an action-level [Authorize] apply, the user must pass BOTH.
 // -----------------------------------------------------------------------------
 
+using EMS.Api.Security;
 using EMS.Application.Departments;
 using EMS.Contracts.Departments;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EMS.Api.Controllers;
@@ -30,6 +34,8 @@ namespace EMS.Api.Controllers;
 [Route("api/v1/departments")]
 // Documents the response content type for OpenAPI.
 [Produces("application/json")]
+// Applies to every action below. Not logged in -> 401, wrong role -> 403.
+[Authorize(Policy = Policies.ViewOrganization)]
 public sealed class DepartmentsController(IDepartmentService departments) : ControllerBase
 {
     // GET /api/v1/departments?includeInactive=true
@@ -59,6 +65,7 @@ public sealed class DepartmentsController(IDepartmentService departments) : Cont
 
     // POST /api/v1/departments   body: { "code": "ENG", "name": "Engineering" }
     [HttpPost]
+    [Authorize(Policy = Policies.ManageOrganization)]
     [ProducesResponseType<DepartmentResponse>(StatusCodes.Status201Created)]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
@@ -74,6 +81,7 @@ public sealed class DepartmentsController(IDepartmentService departments) : Cont
 
     // PUT /api/v1/departments/5   (PUT = replace the editable fields)
     [HttpPut("{id:int}")]
+    [Authorize(Policy = Policies.ManageOrganization)]
     [ProducesResponseType<DepartmentResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
@@ -90,6 +98,7 @@ public sealed class DepartmentsController(IDepartmentService departments) : Cont
     // automatically. (Base64 characters like "=" and "+" must be URL-encoded,
     // which RTK Query / URLSearchParams do for us.)
     [HttpDelete("{id:int}")]
+    [Authorize(Policy = Policies.ManageOrganization)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]

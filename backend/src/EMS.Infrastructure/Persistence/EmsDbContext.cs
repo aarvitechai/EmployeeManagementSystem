@@ -20,6 +20,8 @@ using EMS.Application.Abstractions;
 using EMS.Domain.Common;
 using EMS.Domain.Departments;
 using EMS.Domain.Employees;
+using EMS.Infrastructure.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace EMS.Infrastructure.Persistence;
@@ -35,8 +37,14 @@ namespace EMS.Infrastructure.Persistence;
 // how the Application layer's services reach the database without knowing
 // about this class or SQL Server. DbContext already has public Entry() and
 // SaveChangesAsync() methods, so they satisfy the interface automatically.
+//
+// It inherits IdentityDbContext<AppUser> (instead of plain DbContext), which
+// adds ASP.NET Core Identity's tables to the SAME database: AspNetUsers,
+// AspNetRoles, AspNetUserRoles, plus claims/logins/tokens tables.
+// IdentityDbContext itself derives from DbContext, so everything else works
+// exactly as before.
 public sealed class EmsDbContext(DbContextOptions<EmsDbContext> options)
-    : DbContext(options), IEmsDbContext
+    : IdentityDbContext<AppUser>(options), IEmsDbContext
 {
     // ---- Tables -------------------------------------------------------------
     // One DbSet per table. Query them with LINQ, e.g.
@@ -55,6 +63,8 @@ public sealed class EmsDbContext(DbContextOptions<EmsDbContext> options)
     // database: table names, column types, keys, indexes, relationships.
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        // REQUIRED with IdentityDbContext: the base method configures all the
+        // AspNet* Identity tables. Forgetting it breaks the Identity mapping.
         base.OnModelCreating(modelBuilder);
 
         // Instead of configuring every entity in this one method (which grows

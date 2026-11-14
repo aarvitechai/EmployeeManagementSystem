@@ -40,6 +40,24 @@ export type ProblemDetails = {
   errors?: Record<string, string[]>;
 };
 
+// ---- Auth -------------------------------------------------------------------
+
+// Role names, same as backend EMS.Application/Authorization/AppRoles.cs.
+export type AppRole = "SystemAdmin" | "HRAdmin" | "Manager" | "Employee";
+
+// GET /api/v1/auth/me and the login response.
+export type CurrentUser = {
+  email: string;
+  roles: AppRole[];
+};
+
+// Body of POST /api/v1/auth/login.
+export type LoginRequest = {
+  email: string;
+  password: string;
+  rememberMe: boolean;
+};
+
 // ---- Departments ------------------------------------------------------------
 
 export type Department = {

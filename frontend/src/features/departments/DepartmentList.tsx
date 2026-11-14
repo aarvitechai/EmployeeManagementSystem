@@ -11,12 +11,16 @@
 import Link from "next/link";
 import { useState } from "react";
 
+import { useCurrentUser } from "@/features/auth/useCurrentUser";
 import { getErrorMessage } from "@/services/apiErrors";
 
 import { useGetDepartmentsQuery } from "./departmentsApi";
 
 export default function DepartmentList() {
   const [includeInactive, setIncludeInactive] = useState(false);
+
+  // Only admins/HR see New/Edit (UI only; the API enforces it with 403).
+  const { canManage } = useCurrentUser();
 
   // { includeInactive: false } and { includeInactive: true } are cached
   // separately, so flipping the checkbox back is instant.
@@ -38,12 +42,14 @@ export default function DepartmentList() {
           Show inactive departments
         </label>
 
-        <Link
-          href="/departments/new"
-          className="rounded bg-zinc-900 px-4 py-2 text-sm text-white dark:bg-zinc-100 dark:text-black"
-        >
-          New department
-        </Link>
+        {canManage && (
+          <Link
+            href="/departments/new"
+            className="rounded bg-zinc-900 px-4 py-2 text-sm text-white dark:bg-zinc-100 dark:text-black"
+          >
+            New department
+          </Link>
+        )}
       </div>
 
       {isError && (
@@ -111,9 +117,11 @@ export default function DepartmentList() {
                     </span>
                   </td>
                   <td className="px-3 py-2 text-right">
-                    <Link href={`/departments/${d.id}/edit`} className="hover:underline">
-                      Edit<span className="sr-only"> {d.name}</span>
-                    </Link>
+                    {canManage && (
+                      <Link href={`/departments/${d.id}/edit`} className="hover:underline">
+                        Edit<span className="sr-only"> {d.name}</span>
+                      </Link>
+                    )}
                   </td>
                 </tr>
               ))

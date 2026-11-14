@@ -42,9 +42,20 @@ export function getErrorMessage(error: unknown): string {
       return "The server took too long to respond. Please try again.";
     }
 
-    // The backend replied with Problem Details: prefer its `detail`, then `title`.
+    // The backend replied with Problem Details: prefer its `detail`.
     const problem = error.data as ProblemDetails | undefined;
     if (problem?.detail) return problem.detail;
+
+    // Auth-related statuses without a specific message get friendly text
+    // instead of the generic titles "Forbidden" / "Too Many Requests".
+    if (error.status === 403) return "You don't have permission to do this.";
+    if (error.status === 429) return "Too many attempts. Please wait a minute and try again.";
+    // 401 from the login endpoint carries a title such as "Invalid email or
+    // password."; any other 401 means the session is gone.
+    if (error.status === 401 && (!problem?.title || problem.title === "Unauthorized")) {
+      return "Your session has expired. Please sign in again.";
+    }
+
     if (problem?.title) return problem.title;
 
     return `Request failed (${String(error.status)}).`;

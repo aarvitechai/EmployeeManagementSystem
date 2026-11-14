@@ -2,13 +2,16 @@
 // SiteNav.tsx: the top navigation bar shown on every page
 // =============================================================================
 //
-// A Server Component (no "use client"): just links, no state or hooks, so it
-// renders on the server and ships no JavaScript of its own. It's placed in
-// app/layout.tsx, OUTSIDE the Suspense boundary, so it's part of the static
-// shell and appears instantly, even before the Redux-powered content loads.
+// A Server Component (no "use client"): the links need no state or hooks,
+// so they render on the server. It's used by app/(app)/layout.tsx, so it only
+// appears on logged-in pages. The interactive part (who's signed in + Log out)
+// is the Client Component <UserMenu />: a Server Component can render a Client
+// Component inside it.
 // -----------------------------------------------------------------------------
 
 import Link from "next/link";
+
+import UserMenu from "@/features/auth/UserMenu";
 
 // One place to add future sections (Leave, Reports...).
 const links = [
@@ -33,6 +36,7 @@ export default function SiteNav() {
             </li>
           ))}
         </ul>
+        <UserMenu />
       </nav>
     </header>
   );
