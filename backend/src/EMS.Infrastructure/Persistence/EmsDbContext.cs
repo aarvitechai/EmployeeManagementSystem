@@ -16,6 +16,9 @@
 // Infrastructure is the layer allowed to know HOW data is stored.
 // -----------------------------------------------------------------------------
 
+using EMS.Domain.Common;
+using EMS.Domain.Departments;
+using EMS.Domain.Employees;
 using Microsoft.EntityFrameworkCore;
 
 namespace EMS.Infrastructure.Persistence;
@@ -30,13 +33,16 @@ public sealed class EmsDbContext(DbContextOptions<EmsDbContext> options)
     : DbContext(options)
 {
     // ---- Tables -------------------------------------------------------------
-    // Add one DbSet property per entity as features are built, e.g.:
+    // One DbSet per table. Query them with LINQ, e.g.
+    //   await db.Employees.Where(e => e.Status == EmployeeStatus.Active).ToListAsync();
     //
-    //   public DbSet<Department> Departments => Set<Department>();
-    //   public DbSet<Employee>   Employees   => Set<Employee>();
-    //
-    // Then run `dotnet ef migrations add <Name>` (see backend/README.md) so EF
-    // Core generates the SQL that creates or changes the tables.
+    // `=> Set<T>()` returns EF Core's DbSet for that entity type.
+    public DbSet<Department> Departments => Set<Department>();
+    public DbSet<Employee> Employees => Set<Employee>();
+
+    // After adding a DbSet or changing a configuration, run
+    // `dotnet ef migrations add <Name>` (see backend/README.md) so EF Core
+    // generates the SQL that creates or changes the tables.
 
     // ---- Model configuration ------------------------------------------------
     // OnModelCreating runs once when EF Core builds its picture of the
@@ -51,5 +57,44 @@ public sealed class EmsDbContext(DbContextOptions<EmsDbContext> options)
         // folder. This line finds ALL such classes in this assembly and
         // applies them automatically.
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(EmsDbContext).Assembly);
+    }
+
+    // ---- Automatic audit timestamps -----------------------------------------
+    // We override saving so CreatedAtUtc / UpdatedAtUtc are filled in for
+    // EVERY entity, in ONE place, every time anything is saved.
+    //
+    // EF Core has 4 SaveChanges overloads; the other two call these two, so
+    // overriding these covers both SaveChanges() and SaveChangesAsync().
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        SetAuditTimestamps();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    public override Task<int> SaveChangesAsync(
+        bool acceptAllChangesOnSuccess,
+        CancellationToken cancellationToken = default)
+    {
+        SetAuditTimestamps();
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
+    private void SetAuditTimestamps()
+    {
+        var now = DateTime.UtcNow;
+
+        // ChangeTracker knows every entity this context loaded or was given,
+        // and whether it is Added, Modified, Deleted or Unchanged.
+        foreach (var entry in ChangeTracker.Entries<Entity>())
+        {
+            if (entry.State == EntityState.Added)
+            {
+                entry.Entity.CreatedAtUtc = now;
+            }
+            else if (entry.State == EntityState.Modified)
+            {
+                entry.Entity.UpdatedAtUtc = now;
+            }
+        }
     }
 }
