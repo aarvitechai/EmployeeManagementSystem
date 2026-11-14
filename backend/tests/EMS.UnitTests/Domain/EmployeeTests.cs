@@ -13,6 +13,7 @@
 // Each test follows Arrange (set up) -> Act (do the thing) -> Assert (check).
 // -----------------------------------------------------------------------------
 
+using EMS.Domain.Common;
 using EMS.Domain.Employees;
 
 namespace EMS.UnitTests.Domain;
@@ -49,14 +50,14 @@ public class EmployeeTests
     public void Constructor_RejectsBlankFirstName(string firstName)
     {
         // Assert.Throws checks that the code inside the lambda throws.
-        Assert.Throws<ArgumentException>(() =>
+        Assert.Throws<DomainException>(() =>
             new Employee("EMP-1", firstName, "Verma", "a@example.com", new DateOnly(2026, 1, 1), 1));
     }
 
     [Fact]
     public void Constructor_RejectsInvalidDepartmentId()
     {
-        Assert.Throws<ArgumentOutOfRangeException>(() =>
+        Assert.Throws<DomainException>(() =>
             new Employee("EMP-1", "Asha", "Verma", "a@example.com", new DateOnly(2026, 1, 1), departmentId: 0));
     }
 
@@ -67,7 +68,7 @@ public class EmployeeTests
         var employee = CreateEmployee(hireDate: new DateOnly(2026, 3, 1));
 
         // Act + Assert: termination one day before hiring is invalid.
-        Assert.Throws<ArgumentException>(() => employee.Terminate(new DateOnly(2026, 2, 28)));
+        Assert.Throws<DomainException>(() => employee.Terminate(new DateOnly(2026, 2, 28)));
     }
 
     [Fact]
@@ -87,6 +88,6 @@ public class EmployeeTests
         var employee = CreateEmployee();
         employee.Terminate(new DateOnly(2026, 6, 30));
 
-        Assert.Throws<InvalidOperationException>(() => employee.MarkActive());
+        Assert.Throws<DomainException>(() => employee.MarkActive());
     }
 }

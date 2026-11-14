@@ -1,6 +1,101 @@
-@EMS.Api_HostAddress = http://localhost:5131
+# =============================================================================
+# EMS.Api.http: ready-to-run HTTP requests for trying the API
+# =============================================================================
+#
+# Visual Studio and VS Code (with the "REST Client" extension) and JetBrains
+# Rider can run these directly: start the API (`dotnet run --project src/EMS.Api`),
+# then click "Send Request" above any request below.
+#
+# `@name = value` defines a variable, used as {{name}}. Requests are separated by ###.
+#
+# For PUT / PATCH, first GET the record and copy its "rowVersion" value into
+# the request body (optimistic concurrency, see ConcurrencyExtensions.cs).
+# -----------------------------------------------------------------------------
 
-GET {{EMS.Api_HostAddress}}/weatherforecast/
-Accept: application/json
+@host = http://localhost:5131
+@api = {{host}}/api/v1
 
-###
+### Health check (also checks the database connection)
+GET {{host}}/health
+
+### ---------------------------------------------------------------- Departments
+
+### List active departments
+GET {{api}}/departments
+
+### List all departments, including inactive ones
+GET {{api}}/departments?includeInactive=true
+
+### Get one department
+GET {{api}}/departments/1
+
+### Create a department
+POST {{api}}/departments
+Content-Type: application/json
+
+{
+  "code": "ENG",
+  "name": "Engineering",
+  "description": "Software engineering"
+}
+
+### Update a department (paste the current rowVersion from a GET)
+PUT {{api}}/departments/1
+Content-Type: application/json
+
+{
+  "name": "Engineering",
+  "description": "Software and platform engineering",
+  "isActive": true,
+  "rowVersion": "PASTE_ROWVERSION_HERE"
+}
+
+### ------------------------------------------------------------------ Employees
+
+### List employees (page 1, 20 per page, sorted by last name)
+GET {{api}}/employees
+
+### Search, filter and sort
+GET {{api}}/employees?search=asha&departmentId=1&status=Active&sortBy=hireDate&sortDirection=desc&page=1&pageSize=10
+
+### Get one employee
+GET {{api}}/employees/1
+
+### Create an employee
+POST {{api}}/employees
+Content-Type: application/json
+
+{
+  "employeeNumber": "EMP-0001",
+  "firstName": "Asha",
+  "lastName": "Verma",
+  "email": "asha.verma@example.com",
+  "phoneNumber": "+91 98765 43210",
+  "hireDate": "2026-01-15",
+  "departmentId": 1,
+  "managerId": null
+}
+
+### Update an employee (paste the current rowVersion from a GET)
+PUT {{api}}/employees/1
+Content-Type: application/json
+
+{
+  "firstName": "Asha",
+  "lastName": "Verma",
+  "email": "asha.verma@example.com",
+  "phoneNumber": null,
+  "departmentId": 1,
+  "managerId": null,
+  "rowVersion": "PASTE_ROWVERSION_HERE"
+}
+
+### Change status: Active | OnLeave | Terminated (terminationDate needed for Terminated)
+PATCH {{api}}/employees/1/status
+Content-Type: application/json
+
+{
+  "status": "OnLeave",
+  "terminationDate": null,
+  "rowVersion": "PASTE_ROWVERSION_HERE"
+}

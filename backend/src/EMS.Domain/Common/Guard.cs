@@ -6,6 +6,9 @@
 // away if something is wrong. Collecting them here avoids copy-pasting the
 // same if/throw code into every entity.
 //
+// They throw DomainException (see DomainException.cs), which the API turns
+// into a "400 Bad Request" response.
+//
 // `internal` = usable only inside the EMS.Domain project.
 // -----------------------------------------------------------------------------
 
@@ -17,11 +20,11 @@ internal static class Guard
     public static string Required(string value, string paramName, int maxLength)
     {
         if (string.IsNullOrWhiteSpace(value))
-            throw new ArgumentException("Value is required.", paramName);
+            throw new DomainException($"{paramName}: Value is required.");
 
         var trimmed = value.Trim();
         if (trimmed.Length > maxLength)
-            throw new ArgumentException($"Must be at most {maxLength} characters.", paramName);
+            throw new DomainException($"{paramName}: Must be at most {maxLength} characters.");
 
         return trimmed;
     }
@@ -34,7 +37,7 @@ internal static class Guard
 
         var trimmed = value.Trim();
         if (trimmed.Length > maxLength)
-            throw new ArgumentException($"Must be at most {maxLength} characters.", paramName);
+            throw new DomainException($"{paramName}: Must be at most {maxLength} characters.");
 
         return trimmed;
     }
@@ -43,7 +46,7 @@ internal static class Guard
     public static int PositiveId(int id, string paramName)
     {
         if (id <= 0)
-            throw new ArgumentOutOfRangeException(paramName, "Id must be greater than zero.");
+            throw new DomainException($"{paramName}: Id must be greater than zero.");
 
         return id;
     }

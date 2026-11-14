@@ -49,7 +49,7 @@ public sealed class Department : Entity
     private Department() { }
 
     // The only way for application code to create a Department.
-    // Guard.* (Common/Guard.cs) throws ArgumentException on bad input, so
+    // Guard.* (Common/Guard.cs) throws DomainException on bad input, so
     // invalid data can never get past the domain, no matter which API
     // endpoint or background job tries to create it.
     public Department(string code, string name, string? description = null)

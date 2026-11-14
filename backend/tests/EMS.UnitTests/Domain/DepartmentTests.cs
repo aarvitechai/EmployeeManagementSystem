@@ -4,6 +4,7 @@
 // See EmployeeTests.cs for an explanation of [Fact], [Theory] and Assert.
 // -----------------------------------------------------------------------------
 
+using EMS.Domain.Common;
 using EMS.Domain.Departments;
 
 namespace EMS.UnitTests.Domain;
@@ -27,7 +28,7 @@ public class DepartmentTests
         // new string('X', 11) = "XXXXXXXXXXX", one character over the limit.
         var tooLong = new string('X', Department.CodeMaxLength + 1);
 
-        Assert.Throws<ArgumentException>(() => new Department(tooLong, "Engineering"));
+        Assert.Throws<DomainException>(() => new Department(tooLong, "Engineering"));
     }
 
     [Fact]

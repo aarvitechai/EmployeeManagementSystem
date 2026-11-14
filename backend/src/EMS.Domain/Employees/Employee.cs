@@ -110,7 +110,7 @@ public sealed class Employee : Entity
         // Rule: nobody can manage themselves. (Id is 0 before the first save,
         // so this check is only meaningful for saved employees.)
         if (managerId is not null && Id != 0 && managerId == Id)
-            throw new InvalidOperationException("An employee cannot be their own manager.");
+            throw new DomainException("An employee cannot be their own manager.");
 
         ManagerId = managerId;
     }
@@ -131,7 +131,7 @@ public sealed class Employee : Entity
     {
         // Rule from the design doc: end date >= start date.
         if (terminationDate < HireDate)
-            throw new ArgumentException("Termination date cannot be before the hire date.", nameof(terminationDate));
+            throw new DomainException("Termination date cannot be before the hire date.");
 
         TerminationDate = terminationDate;
         Status = EmployeeStatus.Terminated;
@@ -140,6 +140,6 @@ public sealed class Employee : Entity
     private void EnsureNotTerminated()
     {
         if (Status == EmployeeStatus.Terminated)
-            throw new InvalidOperationException("A terminated employee cannot change status.");
+            throw new DomainException("A terminated employee cannot change status.");
     }
 }

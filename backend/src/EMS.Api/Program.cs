@@ -7,6 +7,8 @@
 //   2. RUN:    configure the HTTP pipeline (middleware) and map endpoints.
 // -----------------------------------------------------------------------------
 
+using EMS.Api.ErrorHandling;
+using EMS.Application;
 using EMS.Infrastructure;
 using EMS.Infrastructure.Persistence;
 
@@ -32,9 +34,19 @@ builder.Services.AddCors(options =>
               .AllowCredentials());
 });
 
+// Application layer: use-case services + FluentValidation validators. See
+// EMS.Application/DependencyInjection.cs.
+builder.Services.AddApplication();
+
 // Infrastructure layer: EF Core + SQL Server (EmsDbContext). See
 // EMS.Infrastructure/DependencyInjection.cs.
 builder.Services.AddInfrastructure(builder.Configuration);
+
+// Errors: every exception becomes a standard "Problem Details" JSON response
+// (see ErrorHandling/GlobalExceptionHandler.cs). AddProblemDetails also makes
+// plain error status codes (e.g. a 404 for an unknown URL) use that format.
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+builder.Services.AddProblemDetails();
 
 builder.Services.AddControllers();
 
@@ -50,6 +62,14 @@ builder.Services.AddOpenApi();
 var app = builder.Build();
 
 // ---- 2. HTTP pipeline (order matters: each request flows top to bottom) ----
+
+// FIRST in the pipeline, so it can catch exceptions thrown by anything after
+// it (controllers, services, EF Core) and hand them to GlobalExceptionHandler.
+app.UseExceptionHandler();
+
+// Returns Problem Details for error status codes that have no body, such as
+// 404 for a URL that matches no endpoint.
+app.UseStatusCodePages();
 
 if (app.Environment.IsDevelopment())
 {

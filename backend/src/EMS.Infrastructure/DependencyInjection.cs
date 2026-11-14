@@ -13,6 +13,7 @@
 // clean. Later, file storage, email and cache adapters get registered here too.
 // -----------------------------------------------------------------------------
 
+using EMS.Application.Abstractions;
 using EMS.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -56,6 +57,11 @@ public static class DependencyInjection
                 // next to the DbContext, not in EMS.Api.
                 sql.MigrationsAssembly(typeof(EmsDbContext).Assembly.FullName);
             }));
+
+        // When an Application service asks for IEmsDbContext, hand it the SAME
+        // scoped EmsDbContext instance registered above (not a second one),
+        // so everything in one request shares one unit of work.
+        services.AddScoped<IEmsDbContext>(sp => sp.GetRequiredService<EmsDbContext>());
 
         return services;
     }

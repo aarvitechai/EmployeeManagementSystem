@@ -16,6 +16,7 @@
 // Infrastructure is the layer allowed to know HOW data is stored.
 // -----------------------------------------------------------------------------
 
+using EMS.Application.Abstractions;
 using EMS.Domain.Common;
 using EMS.Domain.Departments;
 using EMS.Domain.Employees;
@@ -29,8 +30,13 @@ namespace EMS.Infrastructure.Persistence;
 // Server) and connection string. We never build these ourselves: ASP.NET
 // Core's dependency injection creates them from the AddDbContext call in
 // DependencyInjection.cs and passes them in.
+//
+// It also implements IEmsDbContext (defined in EMS.Application), which is
+// how the Application layer's services reach the database without knowing
+// about this class or SQL Server. DbContext already has public Entry() and
+// SaveChangesAsync() methods, so they satisfy the interface automatically.
 public sealed class EmsDbContext(DbContextOptions<EmsDbContext> options)
-    : DbContext(options)
+    : DbContext(options), IEmsDbContext
 {
     // ---- Tables -------------------------------------------------------------
     // One DbSet per table. Query them with LINQ, e.g.

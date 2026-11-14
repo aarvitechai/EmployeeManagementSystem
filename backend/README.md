@@ -39,6 +39,40 @@ dotnet run --project src/EMS.Api     # http://localhost:5131
 - Health check: `GET /health`
 - OpenAPI document (Development only): `GET /openapi/v1.json`
 
+## API endpoints
+
+All endpoints are under `/api/v1`. Try them with `src/EMS.Api/EMS.Api.http`.
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| GET | `/departments?includeInactive=false` | List departments |
+| GET | `/departments/{id}` | Get one department |
+| POST | `/departments` | Create a department (201) |
+| PUT | `/departments/{id}` | Update name, description, active flag |
+| GET | `/employees` | Search / filter / sort / paginate employees |
+| GET | `/employees/{id}` | Get one employee |
+| POST | `/employees` | Create an employee (201) |
+| PUT | `/employees/{id}` | Update details, department, manager |
+| PATCH | `/employees/{id}/status` | Active / OnLeave / Terminated |
+
+`GET /employees` query parameters: `page` (default 1), `pageSize` (1-100, default 20), `search`,
+`departmentId`, `managerId`, `status`, `sortBy` (`lastName`, `firstName`, `employeeNumber`,
+`hireDate`, `createdAt`) and `sortDirection` (`asc`/`desc`).
+
+- **Errors** use RFC 9457 Problem Details: 400 validation / business rule, 404 not found,
+  409 conflict (duplicate, invalid state, or concurrent edit).
+- **Concurrency:** every response has a `rowVersion`. Send it back in PUT/PATCH bodies; if someone
+  else saved the record in the meantime, the API returns 409 instead of overwriting their change.
+- **Not yet secured:** authentication and authorization arrive in Phase 6.
+
+### Request flow
+
+```
+HTTP -> Controller (EMS.Api) -> Service + Validator (EMS.Application) -> Entity rules (EMS.Domain)
+                                        |
+                                        +-> IEmsDbContext -> EmsDbContext (EMS.Infrastructure) -> SQL Server
+```
+
 ## Database (EF Core + SQL Server)
 
 - `EmsDbContext` lives in `src/EMS.Infrastructure/Persistence/` and is registered by
