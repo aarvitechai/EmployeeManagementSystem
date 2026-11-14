@@ -49,6 +49,7 @@ All endpoints are under `/api/v1`. Try them with `src/EMS.Api/EMS.Api.http`.
 | GET | `/departments/{id}` | Get one department |
 | POST | `/departments` | Create a department (201) |
 | PUT | `/departments/{id}` | Update name, description, active flag |
+| DELETE | `/departments/{id}?rowVersion=...` | Soft delete (only when it has no employees) -> 204 |
 | GET | `/employees` | Search / filter / sort / paginate employees |
 | GET | `/employees/{id}` | Get one employee |
 | POST | `/employees` | Create an employee (201) |

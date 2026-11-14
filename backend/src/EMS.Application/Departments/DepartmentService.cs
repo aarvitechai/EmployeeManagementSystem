@@ -19,17 +19,22 @@ using EMS.Application.Common;
 using EMS.Contracts.Departments;
 using EMS.Domain.Departments;
 using FluentValidation;
+using FluentValidation.Results;
 using Microsoft.EntityFrameworkCore;
 
 namespace EMS.Application.Departments;
 
 // The interface is what controllers depend on (registered in DI).
+//
+// DeleteAsync is a SOFT delete: it sets IsDeleted = true (see Department.cs)
+// instead of removing the row.
 public interface IDepartmentService
 {
     Task<IReadOnlyList<DepartmentResponse>> GetAllAsync(bool includeInactive, CancellationToken ct);
     Task<DepartmentResponse> GetByIdAsync(int id, CancellationToken ct);
     Task<DepartmentResponse> CreateAsync(CreateDepartmentRequest request, CancellationToken ct);
     Task<DepartmentResponse> UpdateAsync(int id, UpdateDepartmentRequest request, CancellationToken ct);
+    Task DeleteAsync(int id, byte[]? rowVersion, CancellationToken ct);
 }
 
 // `internal`: other projects use the interface, never this class directly.
@@ -56,11 +61,21 @@ internal sealed class DepartmentService(
             d.UpdatedAtUtc,
             d.RowVersion);
 
+    // Every READ goes through this: soft-deleted departments (IsDeleted = 1)
+    // are treated as if they don't exist. `includeInactive` never brings them
+    // back. Inactive and deleted are different things.
+    //
+    // Why not an EF Core global query filter (HasQueryFilter)? Employee has a
+    // REQUIRED link to Department, and a global filter would make EF Core
+    // silently drop employees whose department is filtered out from employee
+    // queries. Filtering explicitly here keeps that behaviour obvious.
+    private IQueryable<Department> LiveDepartments => db.Departments.Where(d => !d.IsDeleted);
+
     public async Task<IReadOnlyList<DepartmentResponse>> GetAllAsync(bool includeInactive, CancellationToken ct)
     {
         // IQueryable = a query that is BUILT step by step and only runs
         // against SQL Server when ToListAsync() is called.
-        var query = db.Departments.AsQueryable();
+        var query = LiveDepartments;
 
         if (!includeInactive)
             query = query.Where(d => d.IsActive);
@@ -73,7 +88,7 @@ internal sealed class DepartmentService(
 
     public async Task<DepartmentResponse> GetByIdAsync(int id, CancellationToken ct)
     {
-        return await db.Departments
+        return await LiveDepartments
             .Where(d => d.Id == id)
             .Select(ToResponse)
             .FirstOrDefaultAsync(ct)
@@ -93,10 +108,12 @@ internal sealed class DepartmentService(
 
         // Friendly duplicate checks. The UNIQUE indexes in SQL Server still
         // protect us if two requests race past these checks at the same time.
-        if (await db.Departments.AnyAsync(d => d.Code == code, ct))
+        // Only LIVE departments count: a deleted department's code may be
+        // reused (matches the filtered unique index in DepartmentConfiguration).
+        if (await LiveDepartments.AnyAsync(d => d.Code == code, ct))
             throw new ConflictException($"A department with code '{code}' already exists.");
 
-        if (await db.Departments.AnyAsync(d => d.Name == name, ct))
+        if (await LiveDepartments.AnyAsync(d => d.Name == name, ct))
             throw new ConflictException($"A department named '{name}' already exists.");
 
         var department = new Department(code, name, request.Description);
@@ -115,11 +132,11 @@ internal sealed class DepartmentService(
 
         // Load the entity WITH change tracking, so EF Core notices the changes
         // made by the method calls below and writes them on save.
-        var department = await db.Departments.FirstOrDefaultAsync(d => d.Id == id, ct)
+        var department = await LiveDepartments.FirstOrDefaultAsync(d => d.Id == id, ct)
             ?? throw new NotFoundException("Department", id);
 
         var name = request.Name.Trim();
-        if (await db.Departments.AnyAsync(d => d.Id != id && d.Name == name, ct))
+        if (await LiveDepartments.AnyAsync(d => d.Id != id && d.Name == name, ct))
             throw new ConflictException($"A department named '{name}' already exists.");
 
         // Change state ONLY through the entity's methods (its business rules).
@@ -133,5 +150,36 @@ internal sealed class DepartmentService(
         await db.SaveChangesAsync(ct);
 
         return await GetByIdAsync(id, ct);
+    }
+
+    public async Task DeleteAsync(int id, byte[]? rowVersion, CancellationToken ct)
+    {
+        // Deleting what you saw: the client must send the version it loaded,
+        // so it can't delete a department someone else just changed.
+        // There's no request body/validator class for a DELETE, so we raise
+        // the same ValidationException a validator would (-> 400 response).
+        if (rowVersion is null || rowVersion.Length == 0)
+            throw new ValidationException([
+                new ValidationFailure("RowVersion", "RowVersion is required. Send back the value from the last GET."),
+            ]);
+
+        // Already-deleted departments are "not found", so deleting twice -> 404.
+        var department = await LiveDepartments.FirstOrDefaultAsync(d => d.Id == id, ct)
+            ?? throw new NotFoundException("Department", id);
+
+        // Count EVERY employee, including terminated ones: their records still
+        // point at this department, so it must stay visible for them.
+        var hasEmployees = await db.Employees.AnyAsync(e => e.DepartmentId == id, ct);
+        if (hasEmployees)
+            throw new ConflictException(
+                "This department still has employees (including terminated ones). Move them to another department first.");
+
+        // The entity applies the change (and re-checks the rule itself).
+        department.MarkDeleted(hasEmployees);
+
+        db.SetOriginalRowVersion(department, rowVersion);
+
+        // An UPDATE (IsDeleted = 1), not a DELETE statement.
+        await db.SaveChangesAsync(ct);
     }
 }

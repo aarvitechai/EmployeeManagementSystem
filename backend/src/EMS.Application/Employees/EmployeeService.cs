@@ -254,8 +254,9 @@ internal sealed class EmployeeService(
     {
         // Select just the IsActive flag. `bool?` is null when no department
         // with that id exists.
+        // A soft-deleted department counts as "not found".
         var isActive = await db.Departments
-            .Where(d => d.Id == departmentId)
+            .Where(d => d.Id == departmentId && !d.IsDeleted)
             .Select(d => (bool?)d.IsActive)
             .FirstOrDefaultAsync(ct);
 

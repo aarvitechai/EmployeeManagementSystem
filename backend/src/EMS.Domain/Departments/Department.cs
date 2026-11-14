@@ -33,9 +33,15 @@ public sealed class Department : Entity
     // `string?` = optional (nullable column).
     public string? Description { get; private set; }
 
-    // Departments are deactivated instead of deleted, so historic employee
-    // records still point to a valid department ("soft delete").
+    // IsActive = false: the department still exists and is listed (e.g.
+    // "Show inactive"), but no new employees can join it. Reversible.
     public bool IsActive { get; private set; } = true;
+
+    // IsDeleted = true: "SOFT DELETE". The row stays in the table (so history,
+    // audit and foreign keys stay valid) but the application treats it as gone:
+    // it is hidden from every list and lookup, and its code/name may be
+    // reused by a new department. A hard DELETE would lose that history.
+    public bool IsDeleted { get; private set; }
 
     // Navigation property: lets EF Core load a department's employees
     // (e.g. `.Include(d => d.Employees)`). Outside code can READ the list
@@ -68,5 +74,26 @@ public sealed class Department : Entity
 
     public void Deactivate() => IsActive = false;
 
-    public void Activate() => IsActive = true;
+    public void Activate()
+    {
+        if (IsDeleted)
+            throw new DomainException("A deleted department cannot be activated.");
+
+        IsActive = true;
+    }
+
+    // Soft-delete this department.
+    //
+    // `hasEmployees` is passed in by the caller (the Application layer counts
+    // them in the database), because this entity doesn't load its employees.
+    // Rule: only an EMPTY department can be deleted. Otherwise employees
+    // would point at a department that no longer appears anywhere.
+    public void MarkDeleted(bool hasEmployees)
+    {
+        if (hasEmployees)
+            throw new DomainException("A department that still has employees cannot be deleted. Move them first.");
+
+        IsDeleted = true;
+        IsActive = false;   // a deleted department is never active
+    }
 }

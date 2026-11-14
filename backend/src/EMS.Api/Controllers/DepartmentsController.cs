@@ -6,6 +6,7 @@
 //   GET    /api/v1/departments/{id}         one department
 //   POST   /api/v1/departments              create  -> 201 Created
 //   PUT    /api/v1/departments/{id}         update
+//   DELETE /api/v1/departments/{id}?rowVersion=...   soft delete -> 204
 //
 // A controller is deliberately THIN: it maps HTTP to a service call and the
 // result back to an HTTP response. Validation, rules and database work live
@@ -80,5 +81,24 @@ public sealed class DepartmentsController(IDepartmentService departments) : Cont
     public async Task<ActionResult<DepartmentResponse>> Update(int id, UpdateDepartmentRequest request, CancellationToken ct)
     {
         return Ok(await departments.UpdateAsync(id, request, ct));
+    }
+
+    // DELETE /api/v1/departments/5?rowVersion=AAAAAAAAB9E%3D
+    //
+    // DELETE requests normally have no body, so the concurrency token travels
+    // in the query string. ASP.NET Core binds a Base64 string to byte[]
+    // automatically. (Base64 characters like "=" and "+" must be URL-encoded,
+    // which RTK Query / URLSearchParams do for us.)
+    [HttpDelete("{id:int}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Delete(int id, [FromQuery] byte[]? rowVersion, CancellationToken ct)
+    {
+        await departments.DeleteAsync(id, rowVersion, ct);
+
+        // 204 No Content: success, and there's nothing to send back.
+        return NoContent();
     }
 }

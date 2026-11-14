@@ -41,14 +41,23 @@ internal sealed class DepartmentConfiguration : IEntityTypeConfiguration<Departm
         builder.Property(d => d.IsActive)
             .HasDefaultValue(true);
 
+        // Soft-delete flag: NOT NULL bit, 0 (false) for existing and new rows.
+        builder.Property(d => d.IsDeleted)
+            .HasDefaultValue(false);
+
         // ---- Indexes --------------------------------------------------------
         // UNIQUE index: SQL Server itself rejects a second "ENG" department,
         // even if two requests try to insert it at the same moment.
-        builder.HasIndex(d => d.Code).IsUnique();
+        //
+        // HasFilter makes it a FILTERED unique index: uniqueness is only
+        // enforced among rows WHERE [IsDeleted] = 0. So once "ENG" is
+        // soft-deleted, a NEW "ENG" department can be created, while two
+        // live "ENG" departments are still impossible.
+        builder.HasIndex(d => d.Code).IsUnique().HasFilter("[IsDeleted] = 0");
 
-        // Department names should also be unique to avoid confusion in UI
-        // drop-downs.
-        builder.HasIndex(d => d.Name).IsUnique();
+        // Department names should also be unique (among live departments) to
+        // avoid confusion in UI drop-downs.
+        builder.HasIndex(d => d.Name).IsUnique().HasFilter("[IsDeleted] = 0");
 
         // The Department -> Employees relationship is configured on the
         // Employee side (EmployeeConfiguration), one place per relationship.
