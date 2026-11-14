@@ -1,8 +1,8 @@
 // =============================================================================
-// apiErrors.ts: turn an RTK Query error into a message a user can read
+// apiErrors.ts: turn an RTK Query error into something a user can read
 // =============================================================================
 //
-// An RTK Query hook's `error` can be one of two shapes:
+// An RTK Query error can be one of two shapes:
 //
 //   1. FetchBaseQueryError: the request went out but failed.
 //        { status: 404, data: { title, detail, ... } }  backend replied with an error
@@ -13,12 +13,12 @@
 //   2. SerializedError: an exception was thrown in our own code.
 //        { message: "..." }
 //
-// This helper checks which shape it is (TypeScript "type narrowing") and
-// returns one readable string.
+// The parameters are typed `unknown` because errors caught with
+// try/catch (e.g. after `.unwrap()`) are `unknown` in TypeScript. These
+// helpers check the shape at runtime ("type narrowing") before using it.
 // -----------------------------------------------------------------------------
 
 import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
-import type { SerializedError } from "@reduxjs/toolkit";
 
 import type { ProblemDetails } from "@/types/api";
 
@@ -28,7 +28,8 @@ function isFetchBaseQueryError(error: unknown): error is FetchBaseQueryError {
   return typeof error === "object" && error !== null && "status" in error;
 }
 
-export function getErrorMessage(error: FetchBaseQueryError | SerializedError | undefined): string {
+// One readable message for any error (shown in an alert banner).
+export function getErrorMessage(error: unknown): string {
   if (!error) return "";
 
   if (isFetchBaseQueryError(error)) {
@@ -49,5 +50,32 @@ export function getErrorMessage(error: FetchBaseQueryError | SerializedError | u
     return `Request failed (${String(error.status)}).`;
   }
 
-  return error.message ?? "Something went wrong.";
+  if (typeof error === "object" && error !== null && "message" in error && typeof error.message === "string") {
+    return error.message;
+  }
+
+  return "Something went wrong.";
+}
+
+// For 400 validation errors: the backend's per-field messages, keyed by the
+// field name in camelCase so they match our form field names.
+//
+//   backend: { errors: { "Email": ["'Email' is not a valid email address."] } }
+//   result:  { email: "'Email' is not a valid email address." }
+//
+// Returns null if the error isn't a validation error.
+export function getFieldErrors(error: unknown): Record<string, string> | null {
+  if (!isFetchBaseQueryError(error) || error.status !== 400) return null;
+
+  const problem = error.data as ProblemDetails | undefined;
+  if (!problem?.errors) return null;
+
+  return Object.fromEntries(
+    Object.entries(problem.errors).map(([field, messages]) => [
+      // "Email" -> "email", "DepartmentId" -> "departmentId"
+      field.charAt(0).toLowerCase() + field.slice(1),
+      // Show the first message per field; that's enough for a form.
+      messages[0] ?? "Invalid value.",
+    ]),
+  );
 }

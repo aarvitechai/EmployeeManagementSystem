@@ -6,13 +6,21 @@
 // from this feature folder. Everything shares one cache, one middleware and
 // one reducer, but each feature keeps its own endpoint definitions.
 //
-// Next steps for this file: add `getEmployee` (one by id) and mutations
-// (createEmployee, updateEmployee...) that INVALIDATE the "Employee" tags
-// below, so the list refreshes itself after a change.
+// QUERIES read data (GET) and PROVIDE cache tags.
+// MUTATIONS change data (POST/PUT/PATCH/DELETE) and INVALIDATE cache tags.
+// When a tag is invalidated, every cached query that provided it is refetched
+// automatically, so after saving an employee the list and the detail view
+// update themselves, with no manual "reload the list" code anywhere.
 // -----------------------------------------------------------------------------
 
 import { api, API_V1 } from "@/services/api";
-import type { Employee, EmployeeListParams, PagedResponse } from "@/types/api";
+import type {
+  CreateEmployeeRequest,
+  Employee,
+  EmployeeListParams,
+  PagedResponse,
+  UpdateEmployeeRequest,
+} from "@/types/api";
 
 // Remove empty values so the URL stays clean: `{ search: "" }` would
 // otherwise send `?search=` and `{ departmentId: undefined }` is skipped
@@ -24,8 +32,18 @@ function toQueryParams(params: EmployeeListParams) {
   );
 }
 
+// Tag meaning "any employee list". Lists are invalidated when an employee
+// is added or changed, because the change can move rows between pages,
+// filters and sort positions, or change a manager name shown on other rows.
+const EMPLOYEE_LIST = { type: "Employee" as const, id: "LIST" };
+// Department responses include an employeeCount, which changes when
+// employees are added or moved between departments.
+const DEPARTMENT_LIST = { type: "Department" as const, id: "LIST" };
+
 export const employeesApi = api.injectEndpoints({
   endpoints: (build) => ({
+    // ---- Queries -------------------------------------------------------------
+
     // build.query<WhatComesBack, WhatTheHookTakes>
     getEmployees: build.query<PagedResponse<Employee>, EmployeeListParams>({
       // Builds the request. `params` becomes the query string:
@@ -42,18 +60,53 @@ export const employeesApi = api.injectEndpoints({
       // TAGS: declare what this response contains:
       //   - one tag per employee:  { type: "Employee", id: 5 }
       //   - one tag for "the list": { type: "Employee", id: "LIST" }
-      // A future createEmployee mutation invalidates "LIST" (a new row may
-      // appear on any page); updateEmployee invalidates just that id.
       providesTags: (result) =>
         result
-          ? [
-              ...result.items.map(({ id }) => ({ type: "Employee" as const, id })),
-              { type: "Employee" as const, id: "LIST" },
-            ]
-          : [{ type: "Employee" as const, id: "LIST" }],
+          ? [...result.items.map(({ id }) => ({ type: "Employee" as const, id })), EMPLOYEE_LIST]
+          : [EMPLOYEE_LIST],
+    }),
+
+    // GET /api/v1/employees/{id}: used by the edit page.
+    getEmployee: build.query<Employee, number>({
+      query: (id) => `${API_V1}/employees/${id}`,
+      // `(result, error, id)`: the third argument is what the hook was called with.
+      providesTags: (_result, _error, id) => [{ type: "Employee", id }],
+    }),
+
+    // ---- Mutations -----------------------------------------------------------
+
+    // POST /api/v1/employees. build.mutation<WhatComesBack, WhatYouSend>
+    createEmployee: build.mutation<Employee, CreateEmployeeRequest>({
+      query: (body) => ({
+        url: `${API_V1}/employees`,
+        method: "POST",
+        // An object `body` is sent as JSON with Content-Type: application/json.
+        body,
+      }),
+      // Only invalidate when the request SUCCEEDED. A failed create changed
+      // nothing, so refetching would waste a request.
+      invalidatesTags: (_result, error) => (error ? [] : [EMPLOYEE_LIST, DEPARTMENT_LIST]),
+    }),
+
+    // PUT /api/v1/employees/{id}. The id goes in the URL, the rest in the body.
+    updateEmployee: build.mutation<Employee, { id: number } & UpdateEmployeeRequest>({
+      // Destructuring: pull `id` out, and gather every other field into `body`.
+      query: ({ id, ...body }) => ({
+        url: `${API_V1}/employees/${id}`,
+        method: "PUT",
+        body,
+      }),
+      invalidatesTags: (_result, error, { id }) =>
+        error ? [] : [{ type: "Employee", id }, EMPLOYEE_LIST, DEPARTMENT_LIST],
     }),
   }),
 });
 
-// Auto-generated React hook for the endpoint above.
-export const { useGetEmployeesQuery } = employeesApi;
+// Auto-generated React hooks: use<Name>Query for queries,
+// use<Name>Mutation for mutations.
+export const {
+  useGetEmployeesQuery,
+  useGetEmployeeQuery,
+  useCreateEmployeeMutation,
+  useUpdateEmployeeMutation,
+} = employeesApi;

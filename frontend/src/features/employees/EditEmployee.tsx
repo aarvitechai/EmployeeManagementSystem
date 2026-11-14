@@ -1,0 +1,50 @@
+// =============================================================================
+// EditEmployee.tsx: loads one employee, then shows the form filled in
+// =============================================================================
+//
+// Separate from EmployeeForm so the form only ever renders WITH data. React
+// Hook Form reads `defaultValues` once, on its first render, so rendering it
+// before the employee has loaded would leave the fields empty.
+// -----------------------------------------------------------------------------
+
+"use client";
+
+import { getErrorMessage } from "@/services/apiErrors";
+
+import EmployeeForm from "./EmployeeForm";
+import { useGetEmployeeQuery } from "./employeesApi";
+
+export default function EditEmployee({ id }: { id: number }) {
+  // /employees/abc/edit gives NaN. Don't even send a request for that.
+  const isValidId = Number.isInteger(id) && id > 0;
+
+  // GET /api/v1/employees/{id}, cached under the tag { type: "Employee", id }.
+  // `skip: true` tells RTK Query not to run the query at all.
+  const { data: employee, isLoading, isError, error, refetch } = useGetEmployeeQuery(id, {
+    skip: !isValidId,
+  });
+
+  if (!isValidId) {
+    return <p role="alert" className="text-sm text-red-700 dark:text-red-400">Employee not found.</p>;
+  }
+
+  if (isLoading) {
+    return <p className="text-zinc-500">Loading employee...</p>;
+  }
+
+  if (isError || !employee) {
+    return (
+      <div role="alert" className="flex items-center gap-4 text-sm text-red-700 dark:text-red-400">
+        <span>{getErrorMessage(error) || "Employee not found."}</span>
+        <button type="button" className="underline" onClick={() => refetch()}>
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  // `key` = rowVersion: if the cached employee is refetched with a NEW version
+  // (someone saved it), React creates a fresh form with the latest values
+  // instead of keeping stale ones.
+  return <EmployeeForm key={employee.rowVersion} employee={employee} />;
+}

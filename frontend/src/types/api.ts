@@ -82,6 +82,31 @@ export type Employee = {
   rowVersion: string;
 };
 
+// Body of POST /api/v1/employees (EMS.Contracts CreateEmployeeRequest).
+export type CreateEmployeeRequest = {
+  employeeNumber: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phoneNumber: string | null;
+  hireDate: string; // "yyyy-MM-dd"
+  departmentId: number;
+  managerId: number | null;
+};
+
+// Body of PUT /api/v1/employees/{id}. EmployeeNumber and HireDate can't be
+// changed after creation. `rowVersion` must be the value from the last GET
+// (optimistic concurrency: the API answers 409 if someone saved in between).
+export type UpdateEmployeeRequest = {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phoneNumber: string | null;
+  departmentId: number;
+  managerId: number | null;
+  rowVersion: string;
+};
+
 // Columns the backend allows sorting by (its sort allow-list).
 export type EmployeeSortBy = "lastName" | "firstName" | "employeeNumber" | "hireDate" | "createdAt";
 export type SortDirection = "asc" | "desc";

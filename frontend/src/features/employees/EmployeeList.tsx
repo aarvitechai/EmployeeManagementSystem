@@ -19,6 +19,7 @@
 // Uses hooks and browser events, so it must be a Client Component.
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 
 import Pagination from "@/components/Pagination";
@@ -126,7 +127,7 @@ export default function EmployeeList() {
   // ---- Render ---------------------------------------------------------------
   return (
     <section className="flex flex-col gap-4">
-      {/* Filters */}
+      {/* Filters + "New employee" button */}
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
         <label className="flex flex-1 flex-col gap-1 text-sm">
           Search
@@ -184,6 +185,13 @@ export default function EmployeeList() {
             ))}
           </select>
         </label>
+
+        <Link
+          href="/employees/new"
+          className="rounded bg-zinc-900 px-4 py-2 text-center text-sm text-white dark:bg-zinc-100 dark:text-black"
+        >
+          New employee
+        </Link>
       </div>
 
       {/* Error state. `role="alert"` makes screen readers announce it. */}
@@ -203,7 +211,7 @@ export default function EmployeeList() {
           instead of breaking the page layout. */}
       <div className="overflow-x-auto rounded border border-zinc-200 dark:border-zinc-800">
         <table
-          className={`w-full min-w-[720px] text-left text-sm transition-opacity ${
+          className={`w-full min-w-[780px] text-left text-sm transition-opacity ${
             // Dim the old rows while the next page is loading.
             isFetching && !isLoading ? "opacity-60" : ""
           }`}
@@ -231,6 +239,10 @@ export default function EmployeeList() {
                   Hire date{sortIndicator("hireDate")}
                 </button>
               </th>
+              {/* sr-only: the header text is read by screen readers but hidden visually. */}
+              <th scope="col" className="px-3 py-2">
+                <span className="sr-only">Actions</span>
+              </th>
             </tr>
           </thead>
 
@@ -238,13 +250,13 @@ export default function EmployeeList() {
             {/* Three possible bodies: first load, no results, or rows. */}
             {isLoading ? (
               <tr>
-                <td colSpan={7} className="px-3 py-8 text-center text-zinc-500">
+                <td colSpan={8} className="px-3 py-8 text-center text-zinc-500">
                   Loading employees...
                 </td>
               </tr>
             ) : data && data.items.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-3 py-8 text-center text-zinc-500">
+                <td colSpan={8} className="px-3 py-8 text-center text-zinc-500">
                   {search || departmentId || status
                     ? "No employees match these filters."
                     : "No employees yet."}
@@ -263,6 +275,13 @@ export default function EmployeeList() {
                     <EmployeeStatusBadge status={employee.status} />
                   </td>
                   <td className="px-3 py-2">{formatDate(employee.hireDate)}</td>
+                  <td className="px-3 py-2 text-right">
+                    {/* Template literal builds /employees/5/edit. The hidden
+                        text tells screen-reader users WHICH employee. */}
+                    <Link href={`/employees/${employee.id}/edit`} className="hover:underline">
+                      Edit<span className="sr-only"> {employee.fullName}</span>
+                    </Link>
+                  </td>
                 </tr>
               ))
             )}
