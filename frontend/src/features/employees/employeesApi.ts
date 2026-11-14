@@ -114,6 +114,21 @@ export const employeesApi = api.injectEndpoints({
       // manager picker, which only offers Active employees).
       invalidatesTags: (_result, error, { id }) => (error ? [] : [{ type: "Employee", id }, EMPLOYEE_LIST]),
     }),
+
+    // DELETE /api/v1/employees/{id}?rowVersion=...: SOFT delete on the
+    // backend (IsDeleted = 1). 204 No Content, so the result type is `void`.
+    deleteEmployee: build.mutation<void, { id: number; rowVersion: string }>({
+      query: ({ id, rowVersion }) => ({
+        url: `${API_V1}/employees/${id}`,
+        method: "DELETE",
+        // No body on DELETE: the concurrency token goes in the query string.
+        params: { rowVersion },
+      }),
+      // Lists (the row disappears) and departments (their employeeCount drops).
+      // NOT { type: "Employee", id }: the edit page is still subscribed while
+      // we navigate away, and refetching a deleted employee would flash a 404.
+      invalidatesTags: (_result, error) => (error ? [] : [EMPLOYEE_LIST, DEPARTMENT_LIST]),
+    }),
   }),
 });
 
@@ -125,4 +140,5 @@ export const {
   useCreateEmployeeMutation,
   useUpdateEmployeeMutation,
   useChangeEmployeeStatusMutation,
+  useDeleteEmployeeMutation,
 } = employeesApi;

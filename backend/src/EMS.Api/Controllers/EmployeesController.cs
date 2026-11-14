@@ -7,6 +7,7 @@
 //   POST   /api/v1/employees                create  -> 201 Created
 //   PUT    /api/v1/employees/{id}           update details, department, manager
 //   PATCH  /api/v1/employees/{id}/status    Active / OnLeave / Terminated
+//   DELETE /api/v1/employees/{id}?rowVersion=...   soft delete -> 204
 //
 // See DepartmentsController.cs for explanations of the attributes used here.
 //
@@ -78,5 +79,19 @@ public sealed class EmployeesController(IEmployeeService employees) : Controller
     public async Task<ActionResult<EmployeeResponse>> ChangeStatus(int id, ChangeEmployeeStatusRequest request, CancellationToken ct)
     {
         return Ok(await employees.ChangeStatusAsync(id, request, ct));
+    }
+
+    // DELETE /api/v1/employees/5?rowVersion=AAAAAAAAB9E%3D
+    // Soft delete. The concurrency token is in the query string because
+    // DELETE requests have no body (see DepartmentsController.Delete).
+    [HttpDelete("{id:int}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Delete(int id, [FromQuery] byte[]? rowVersion, CancellationToken ct)
+    {
+        await employees.DeleteAsync(id, rowVersion, ct);
+        return NoContent();
     }
 }

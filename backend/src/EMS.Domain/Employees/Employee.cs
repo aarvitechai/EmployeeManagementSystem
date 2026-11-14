@@ -48,6 +48,14 @@ public sealed class Employee : Entity
 
     public EmployeeStatus Status { get; private set; } = EmployeeStatus.Active;
 
+    // SOFT DELETE flag. Different from termination:
+    //   Terminated = the person LEFT. They stay visible in lists and history
+    //                (status "Terminated").
+    //   IsDeleted  = the record should not exist (e.g. created by mistake).
+    //                The row stays in the table, but the app hides it
+    //                everywhere, and its employee number / email may be reused.
+    public bool IsDeleted { get; private set; }
+
     // ---- Department relationship ------------------------------------------
     // `DepartmentId` is the FOREIGN KEY column stored in the Employees table.
     // `Department` is the NAVIGATION property: the related object, loaded by
@@ -135,6 +143,18 @@ public sealed class Employee : Entity
 
         TerminationDate = terminationDate;
         Status = EmployeeStatus.Terminated;
+    }
+
+    // `hasDirectReports` is counted by the Application layer in the database
+    // (this entity doesn't load its reports). Rule: someone who still
+    // manages people can't be deleted, or those reports would point at a
+    // manager who no longer appears anywhere. Reassign them first.
+    public void MarkDeleted(bool hasDirectReports)
+    {
+        if (hasDirectReports)
+            throw new DomainException("An employee who still manages other employees cannot be deleted. Assign them a new manager first.");
+
+        IsDeleted = true;
     }
 
     private void EnsureNotTerminated()

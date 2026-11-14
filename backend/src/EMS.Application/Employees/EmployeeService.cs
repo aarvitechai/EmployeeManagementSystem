@@ -7,6 +7,7 @@
 //   CreateAsync        hire a new employee
 //   UpdateAsync        change contact details, department, manager
 //   ChangeStatusAsync  Active / OnLeave / Terminated
+//   DeleteAsync        soft delete (IsDeleted = true)
 //
 // See DepartmentService.cs for the general pattern (validate -> check rules
 // that need the database -> call entity methods -> save -> return DTO).
@@ -19,6 +20,7 @@ using EMS.Contracts.Common;
 using EMS.Contracts.Employees;
 using EMS.Domain.Employees;
 using FluentValidation;
+using FluentValidation.Results;
 using Microsoft.EntityFrameworkCore;
 
 namespace EMS.Application.Employees;
@@ -30,6 +32,7 @@ public interface IEmployeeService
     Task<EmployeeResponse> CreateAsync(CreateEmployeeRequest request, CancellationToken ct);
     Task<EmployeeResponse> UpdateAsync(int id, UpdateEmployeeRequest request, CancellationToken ct);
     Task<EmployeeResponse> ChangeStatusAsync(int id, ChangeEmployeeStatusRequest request, CancellationToken ct);
+    Task DeleteAsync(int id, byte[]? rowVersion, CancellationToken ct);
 }
 
 internal sealed class EmployeeService(
@@ -65,6 +68,13 @@ internal sealed class EmployeeService(
             e.UpdatedAtUtc,
             e.RowVersion);
 
+    // Every READ goes through this: soft-deleted employees (IsDeleted = 1)
+    // are treated as if they don't exist: not listed, not found by id, not
+    // selectable as a manager, and they don't block a reused number/email.
+    // (Explicit filter instead of an EF Core global query filter; see the
+    // same comment in DepartmentService.)
+    private IQueryable<Employee> LiveEmployees => db.Employees.Where(e => !e.IsDeleted);
+
     // ---- Queries ------------------------------------------------------------
 
     public async Task<PagedResponse<EmployeeResponse>> GetPagedAsync(EmployeeListQuery query, CancellationToken ct)
@@ -73,7 +83,7 @@ internal sealed class EmployeeService(
 
         // Start from all employees and add filters one by one. Nothing is sent
         // to SQL Server yet. Each Where() just adds to the future SQL.
-        var employees = db.Employees.AsQueryable();
+        var employees = LiveEmployees;
 
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
@@ -116,7 +126,7 @@ internal sealed class EmployeeService(
 
     public async Task<EmployeeResponse> GetByIdAsync(int id, CancellationToken ct)
     {
-        return await db.Employees
+        return await LiveEmployees
             .Where(e => e.Id == id)
             .Select(ToResponse)
             .FirstOrDefaultAsync(ct)
@@ -133,7 +143,7 @@ internal sealed class EmployeeService(
         var employeeNumber = request.EmployeeNumber.Trim().ToUpperInvariant();
         var email = request.Email.Trim().ToLowerInvariant();
 
-        if (await db.Employees.AnyAsync(e => e.EmployeeNumber == employeeNumber, ct))
+        if (await LiveEmployees.AnyAsync(e => e.EmployeeNumber == employeeNumber, ct))
             throw new ConflictException($"Employee number '{employeeNumber}' is already in use.");
 
         await EnsureEmailIsFreeAsync(email, exceptEmployeeId: null, ct);
@@ -162,7 +172,7 @@ internal sealed class EmployeeService(
     {
         await updateValidator.ValidateAndThrowAsync(request, ct);
 
-        var employee = await db.Employees.FirstOrDefaultAsync(e => e.Id == id, ct)
+        var employee = await LiveEmployees.FirstOrDefaultAsync(e => e.Id == id, ct)
             ?? throw new NotFoundException("Employee", id);
 
         var email = request.Email.Trim().ToLowerInvariant();
@@ -190,7 +200,7 @@ internal sealed class EmployeeService(
     {
         await statusValidator.ValidateAndThrowAsync(request, ct);
 
-        var employee = await db.Employees.FirstOrDefaultAsync(e => e.Id == id, ct)
+        var employee = await LiveEmployees.FirstOrDefaultAsync(e => e.Id == id, ct)
             ?? throw new NotFoundException("Employee", id);
 
         var status = Enum.Parse<EmployeeStatus>(request.Status, ignoreCase: true);
@@ -215,6 +225,32 @@ internal sealed class EmployeeService(
         await db.SaveChangesAsync(ct);
 
         return await GetByIdAsync(id, ct);
+    }
+
+    public async Task DeleteAsync(int id, byte[]? rowVersion, CancellationToken ct)
+    {
+        // The client must send the version it loaded (optimistic concurrency).
+        // DELETE has no body/validator, so raise a ValidationException (-> 400).
+        if (rowVersion is null || rowVersion.Length == 0)
+            throw new ValidationException([
+                new ValidationFailure("RowVersion", "RowVersion is required. Send back the value from the last GET."),
+            ]);
+
+        var employee = await LiveEmployees.FirstOrDefaultAsync(e => e.Id == id, ct)
+            ?? throw new NotFoundException("Employee", id);
+
+        // Does anyone (still live) report to this employee?
+        var hasDirectReports = await LiveEmployees.AnyAsync(e => e.ManagerId == id, ct);
+        if (hasDirectReports)
+            throw new ConflictException(
+                "This employee still manages other employees. Assign them a new manager first.");
+
+        employee.MarkDeleted(hasDirectReports);
+
+        db.SetOriginalRowVersion(employee, rowVersion);
+
+        // Runs an UPDATE (IsDeleted = 1), not a DELETE statement.
+        await db.SaveChangesAsync(ct);
     }
 
     // ---- Helpers ------------------------------------------------------------
@@ -243,7 +279,7 @@ internal sealed class EmployeeService(
 
     private async Task EnsureEmailIsFreeAsync(string email, int? exceptEmployeeId, CancellationToken ct)
     {
-        var taken = await db.Employees.AnyAsync(
+        var taken = await LiveEmployees.AnyAsync(
             e => e.Email == email && (exceptEmployeeId == null || e.Id != exceptEmployeeId), ct);
 
         if (taken)
@@ -275,7 +311,7 @@ internal sealed class EmployeeService(
         if (employeeId is not null && managerId == employeeId)
             throw new ConflictException("An employee cannot be their own manager.");
 
-        var manager = await db.Employees
+        var manager = await LiveEmployees
             .Where(e => e.Id == managerId)
             .Select(e => new { e.Status, e.ManagerId })
             .FirstOrDefaultAsync(ct)
@@ -295,7 +331,7 @@ internal sealed class EmployeeService(
             if (current == employeeId)
                 throw new ConflictException("This manager assignment would create a reporting loop.");
 
-            current = await db.Employees
+            current = await LiveEmployees
                 .Where(e => e.Id == current)
                 .Select(e => e.ManagerId)
                 .FirstOrDefaultAsync(ct);

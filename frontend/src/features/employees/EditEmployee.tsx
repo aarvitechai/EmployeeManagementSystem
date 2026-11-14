@@ -18,6 +18,7 @@ import { useState } from "react";
 
 import { getErrorMessage } from "@/services/apiErrors";
 
+import DeleteEmployeeSection from "./DeleteEmployeeSection";
 import EmployeeForm from "./EmployeeForm";
 import EmployeeStatusPanel from "./EmployeeStatusPanel";
 import { useGetEmployeeQuery } from "./employeesApi";
@@ -69,6 +70,9 @@ export default function EditEmployee({ id }: { id: number }) {
             directly won't re-trigger the form's effect on every render. */}
         <EmployeeForm key={employee.rowVersion} employee={employee} onDirtyChange={setIsFormDirty} />
       </section>
+
+      {/* Last and visually separate, so it's never mistaken for Save. */}
+      <DeleteEmployeeSection employee={employee} />
     </div>
   );
 }

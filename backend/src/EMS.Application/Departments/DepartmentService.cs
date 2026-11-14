@@ -47,7 +47,7 @@ internal sealed class DepartmentService(
     // A PROJECTION: describes how to turn a Department row into a
     // DepartmentResponse. Because it is an Expression (not a normal lambda),
     // EF Core can translate it to SQL and SELECT only the needed columns.
-    // `d.Employees.Count` becomes a SQL COUNT sub-query, so employees are
+    // `d.Employees.Count(...)` becomes a SQL COUNT sub-query, so employees are
     // never loaded into memory just to be counted.
     private static readonly Expression<Func<Department, DepartmentResponse>> ToResponse =
         d => new DepartmentResponse(
@@ -56,7 +56,8 @@ internal sealed class DepartmentService(
             d.Name,
             d.Description,
             d.IsActive,
-            d.Employees.Count,
+            // Only LIVE employees count; soft-deleted ones are ignored.
+            d.Employees.Count(e => !e.IsDeleted),
             d.CreatedAtUtc,
             d.UpdatedAtUtc,
             d.RowVersion);
@@ -169,7 +170,7 @@ internal sealed class DepartmentService(
 
         // Count EVERY employee, including terminated ones: their records still
         // point at this department, so it must stay visible for them.
-        var hasEmployees = await db.Employees.AnyAsync(e => e.DepartmentId == id, ct);
+        var hasEmployees = await db.Employees.AnyAsync(e => e.DepartmentId == id && !e.IsDeleted, ct);
         if (hasEmployees)
             throw new ConflictException(
                 "This department still has employees (including terminated ones). Move them to another department first.");

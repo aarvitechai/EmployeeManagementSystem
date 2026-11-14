@@ -46,6 +46,9 @@ internal sealed class EmployeeConfiguration : IEntityTypeConfiguration<Employee>
         // DateOnly maps to SQL Server's `date` type automatically.
         builder.Property(e => e.HireDate).IsRequired();
 
+        // Soft-delete flag: NOT NULL bit, 0 for existing and new rows.
+        builder.Property(e => e.IsDeleted).HasDefaultValue(false);
+
         // Store the enum as TEXT ("Active", "OnLeave", "Terminated") instead of
         // 0/1/2. Readable in SQL and safe if the enum order ever changes.
         builder.Property(e => e.Status)
@@ -85,8 +88,11 @@ internal sealed class EmployeeConfiguration : IEntityTypeConfiguration<Employee>
 
         // ---- Indexes --------------------------------------------------------
         // Unique business identifiers (design doc: unique EmployeeNumber).
-        builder.HasIndex(e => e.EmployeeNumber).IsUnique();
-        builder.HasIndex(e => e.Email).IsUnique();
+        // FILTERED to live rows (WHERE [IsDeleted] = 0), same as Departments:
+        // a deleted employee's number/email can be used again, but two live
+        // employees can never share one.
+        builder.HasIndex(e => e.EmployeeNumber).IsUnique().HasFilter("[IsDeleted] = 0");
+        builder.HasIndex(e => e.Email).IsUnique().HasFilter("[IsDeleted] = 0");
 
         // Speed up common list filters / sorting: by status, and by name.
         // (EF Core already indexes the foreign keys DepartmentId and ManagerId.)

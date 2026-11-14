@@ -55,6 +55,7 @@ All endpoints are under `/api/v1`. Try them with `src/EMS.Api/EMS.Api.http`.
 | POST | `/employees` | Create an employee (201) |
 | PUT | `/employees/{id}` | Update details, department, manager |
 | PATCH | `/employees/{id}/status` | Active / OnLeave / Terminated |
+| DELETE | `/employees/{id}?rowVersion=...` | Soft delete (not while they manage others) -> 204 |
 
 `GET /employees` query parameters: `page` (default 1), `pageSize` (1-100, default 20), `search`,
 `departmentId`, `managerId`, `status`, `sortBy` (`lastName`, `firstName`, `employeeNumber`,

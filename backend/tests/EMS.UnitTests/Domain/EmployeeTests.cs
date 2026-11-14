@@ -90,4 +90,23 @@ public class EmployeeTests
 
         Assert.Throws<DomainException>(() => employee.MarkActive());
     }
+
+    [Fact]
+    public void MarkDeleted_WithoutDirectReports_SoftDeletes()
+    {
+        var employee = CreateEmployee();
+
+        employee.MarkDeleted(hasDirectReports: false);
+
+        Assert.True(employee.IsDeleted);
+    }
+
+    [Fact]
+    public void MarkDeleted_WithDirectReports_Throws()
+    {
+        var employee = CreateEmployee();
+
+        Assert.Throws<DomainException>(() => employee.MarkDeleted(hasDirectReports: true));
+        Assert.False(employee.IsDeleted);
+    }
 }

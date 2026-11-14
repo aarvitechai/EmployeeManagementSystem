@@ -103,3 +103,7 @@ Content-Type: application/json
 ### Soft-delete a department (only if it has NO employees). Paste the current
 ### rowVersion from a GET; "=" must be URL-encoded as %3D (e.g. AAAAAAAAB9E%3D).
 DELETE {{api}}/departments/1?rowVersion=PASTE_URL_ENCODED_ROWVERSION_HERE
+
+### Soft-delete an employee (not allowed while they manage others). Paste the
+### URL-encoded rowVersion from a GET ("=" -> %3D).
+DELETE {{api}}/employees/1?rowVersion=PASTE_URL_ENCODED_ROWVERSION_HERE
