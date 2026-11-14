@@ -6,12 +6,11 @@
 // URL segment `/employees`, and `page.tsx` is what that URL shows.
 //
 // This is a SERVER Component (no "use client"): it renders the static parts
-// (heading, links) on the server. The interactive table is the Client
+// (heading) on the server. The interactive table is the Client
 // Component <EmployeeList />, which fetches data in the browser via RTK Query.
 // -----------------------------------------------------------------------------
 
 import type { Metadata } from "next";
-import Link from "next/link";
 
 import EmployeeList from "@/features/employees/EmployeeList";
 
@@ -23,14 +22,8 @@ export const metadata: Metadata = {
 export default function EmployeesPage() {
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-10 sm:px-6">
-      <div className="flex flex-col gap-1">
-        {/* <Link> navigates without a full page reload, and prefetches the
-            target page in the background. */}
-        <Link href="/" className="text-sm text-zinc-600 hover:underline dark:text-zinc-400">
-          ← Home
-        </Link>
-        <h1 className="text-3xl font-semibold">Employees</h1>
-      </div>
+      {/* Navigation to other sections lives in the shared SiteNav (layout.tsx). */}
+      <h1 className="text-3xl font-semibold">Employees</h1>
 
       <EmployeeList />
     </main>

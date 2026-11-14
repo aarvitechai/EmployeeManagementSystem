@@ -54,6 +54,21 @@ export type Department = {
   rowVersion: string;
 };
 
+// Body of POST /api/v1/departments.
+export type CreateDepartmentRequest = {
+  code: string;
+  name: string;
+  description: string | null;
+};
+
+// Body of PUT /api/v1/departments/{id}. `code` can't change after creation.
+export type UpdateDepartmentRequest = {
+  name: string;
+  description: string | null;
+  isActive: boolean;
+  rowVersion: string;
+};
+
 // ---- Employees --------------------------------------------------------------
 
 // A "union of string literals": the value can ONLY be one of these three.

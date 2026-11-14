@@ -11,6 +11,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Suspense } from "react";
 
+import SiteNav from "@/components/SiteNav";
 import StoreProvider from "@/store/StoreProvider";
 import "./globals.css";
 
@@ -42,6 +43,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        {/* Shown on every page. Outside the Suspense boundary below, so it is
+            prerendered into the static shell and appears immediately. */}
+        <SiteNav />
+
         {/* StoreProvider makes the Redux store available to every page and
             component below it. It wraps `children` here so all routes share
             the same store while the user navigates around the app.
