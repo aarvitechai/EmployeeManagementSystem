@@ -50,6 +50,23 @@ export const departmentsApi = api.injectEndpoints({
       invalidatesTags: (_result, error, { id }) =>
         error ? [] : [{ type: "Department", id }, DEPARTMENT_LIST, "Employee"],
     }),
+
+    // DELETE /api/v1/departments/{id}?rowVersion=...: SOFT delete on the
+    // backend (IsDeleted = 1). The response is 204 No Content, so the result
+    // type is `void`.
+    deleteDepartment: build.mutation<void, { id: number; rowVersion: string }>({
+      query: ({ id, rowVersion }) => ({
+        url: `${API_V1}/departments/${id}`,
+        method: "DELETE",
+        // DELETE has no body, so the concurrency token goes in the query
+        // string. `params` URL-encodes it ("=" -> "%3D").
+        params: { rowVersion },
+      }),
+      // Only the LISTS are invalidated, not { type: "Department", id }: the
+      // edit page is still subscribed to that department while we navigate
+      // away, and refetching it would just flash "not found" (it's deleted).
+      invalidatesTags: (_result, error) => (error ? [] : [DEPARTMENT_LIST]),
+    }),
   }),
 });
 
@@ -58,4 +75,5 @@ export const {
   useGetDepartmentQuery,
   useCreateDepartmentMutation,
   useUpdateDepartmentMutation,
+  useDeleteDepartmentMutation,
 } = departmentsApi;

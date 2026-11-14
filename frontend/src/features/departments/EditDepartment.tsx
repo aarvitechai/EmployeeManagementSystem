@@ -9,6 +9,7 @@
 
 import { getErrorMessage } from "@/services/apiErrors";
 
+import DeleteDepartmentSection from "./DeleteDepartmentSection";
 import DepartmentForm from "./DepartmentForm";
 import { useGetDepartmentQuery } from "./departmentsApi";
 
@@ -38,6 +39,14 @@ export default function EditDepartment({ id }: { id: number }) {
     );
   }
 
-  // key = rowVersion: a newer version from the server re-creates the form.
-  return <DepartmentForm key={department.rowVersion} department={department} />;
+  return (
+    <div className="flex flex-col gap-10">
+      {/* key = rowVersion: a newer version from the server re-creates the form. */}
+      <DepartmentForm key={department.rowVersion} department={department} />
+
+      {/* Kept separate from the form (and below it) so a destructive action
+          is never confused with "Save". */}
+      <DeleteDepartmentSection department={department} />
+    </div>
+  );
 }
