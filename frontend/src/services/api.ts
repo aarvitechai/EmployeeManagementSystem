@@ -11,15 +11,18 @@
 //     only ONE request),
 //   - refetching when data becomes stale ("tags", see below).
 //
-// We define ONE base `api` for the whole app. Each feature (employees,
-// departments, leave...) adds its own endpoints later with
-// `api.injectEndpoints(...)` inside src/features/<feature>/, which keeps this
-// file small.
+// We define ONE base `api` for the whole app. Each feature adds its own
+// endpoints with `api.injectEndpoints(...)` in its own folder, e.g.
+// src/features/employees/employeesApi.ts. That keeps this file small, and
+// all features still share one cache and one Redux reducer.
 // -----------------------------------------------------------------------------
 
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 
 import { API_BASE_URL } from "./config";
+
+// Every business endpoint lives under /api/v1 on the backend.
+export const API_V1 = "/api/v1";
 
 export const api = createApi({
   // The key under which RTK Query stores its cache in the Redux state.
@@ -27,7 +30,9 @@ export const api = createApi({
   reducerPath: "api",
 
   // fetchBaseQuery is a small wrapper around the browser's `fetch`. Every
-  // endpoint URL below is appended to `baseUrl`.
+  // endpoint URL is appended to `baseUrl`. When a request fails, the error
+  // object it returns is { status: 404, data: <the Problem Details JSON> }
+  // (see services/apiErrors.ts for turning it into a message).
   baseQuery: fetchBaseQuery({
     baseUrl: API_BASE_URL,
 
@@ -43,12 +48,13 @@ export const api = createApi({
   // the Employee list") and a mutation INVALIDATES it ("I just added an
   // employee"), so RTK Query automatically refetches the stale list.
   // Add a tag name here for each kind of backend resource.
-  tagTypes: ["Health"],
+  tagTypes: ["Health", "Employee", "Department"],
 
+  // Endpoints shared by the whole app. Feature endpoints are injected from
+  // their own files.
   endpoints: (build) => ({
-    // Example endpoint: calls the backend's GET /health.
-    // `build.query<ResultType, ArgType>`: we get back a string and pass no
-    // argument (`void`).
+    // Calls the backend's GET /health. `build.query<ResultType, ArgType>`:
+    // we get back a string and pass no argument (`void`).
     getHealth: build.query<string, void>({
       query: () => ({
         url: "/health",

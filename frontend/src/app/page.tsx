@@ -10,6 +10,8 @@
 // hydrated in the browser and can use Redux hooks.
 // -----------------------------------------------------------------------------
 
+import Link from "next/link";
+
 import ReduxDemo from "@/features/system/ReduxDemo";
 
 export default function Home() {
@@ -19,6 +21,14 @@ export default function Home() {
       <p className="text-zinc-600 dark:text-zinc-400">
         Base frontend with Redux Toolkit and RTK Query set up.
       </p>
+
+      {/* <Link> = client-side navigation to another route (no full reload). */}
+      <Link
+        href="/employees"
+        className="self-start rounded bg-zinc-900 px-4 py-2 text-white dark:bg-zinc-100 dark:text-black"
+      >
+        View employees →
+      </Link>
 
       <ReduxDemo />
     </main>
