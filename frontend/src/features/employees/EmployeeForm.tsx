@@ -25,7 +25,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 
 import FormField, { errorId, inputClassName } from "@/components/FormField";
@@ -39,6 +39,9 @@ import { useCreateEmployeeMutation, useGetEmployeesQuery, useUpdateEmployeeMutat
 type EmployeeFormProps = {
   // Present = edit mode; missing = create mode.
   employee?: Employee;
+  // Called whenever the form switches between "no changes" and "has unsaved
+  // changes", so the parent can react (EditEmployee locks the status panel).
+  onDirtyChange?: (isDirty: boolean) => void;
 };
 
 // Convert an existing employee (API shape) into form values (all strings).
@@ -55,7 +58,7 @@ function toFormValues(employee: Employee): EmployeeFormValues {
   };
 }
 
-export default function EmployeeForm({ employee }: EmployeeFormProps) {
+export default function EmployeeForm({ employee, onDirtyChange }: EmployeeFormProps) {
   const isEdit = employee !== undefined;
   const router = useRouter();
 
@@ -68,7 +71,10 @@ export default function EmployeeForm({ employee }: EmployeeFormProps) {
     handleSubmit,
     // Lets us attach SERVER errors to specific fields after submitting.
     setError,
-    formState: { errors, isSubmitting },
+    // Puts every field back to its default values (used by "Discard changes").
+    reset,
+    // isDirty = at least one field differs from its default value.
+    formState: { errors, isSubmitting, isDirty },
   } = useForm<EmployeeFormValues>({
     resolver: zodResolver(employeeFormSchema),
     defaultValues: isEdit ? toFormValues(employee) : emptyEmployeeForm,
@@ -76,6 +82,12 @@ export default function EmployeeForm({ employee }: EmployeeFormProps) {
     // it has an error, so feedback is quick but not shouty while typing.
     mode: "onTouched",
   });
+
+  // Tell the parent when the dirty state changes. useEffect runs AFTER render,
+  // and only when `isDirty` (or the callback) actually changes.
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+  }, [isDirty, onDirtyChange]);
 
   // A message for errors that don't belong to one field (409, network...).
   const [formError, setFormError] = useState<string | null>(null);
@@ -259,6 +271,20 @@ export default function EmployeeForm({ employee }: EmployeeFormProps) {
         >
           {isSubmitting ? "Saving..." : isEdit ? "Save changes" : "Create employee"}
         </button>
+        {/* Only in edit mode, and only when something was changed. */}
+        {isEdit && isDirty && (
+          <button
+            type="button"
+            onClick={() => {
+              reset();
+              setFormError(null);
+            }}
+            disabled={isSubmitting}
+            className="rounded border border-zinc-300 px-4 py-2 text-sm dark:border-zinc-700"
+          >
+            Discard changes
+          </button>
+        )}
         <Link href="/employees" className="text-sm hover:underline">
           Cancel
         </Link>

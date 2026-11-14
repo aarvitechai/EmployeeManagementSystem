@@ -107,6 +107,14 @@ export type UpdateEmployeeRequest = {
   rowVersion: string;
 };
 
+// Body of PATCH /api/v1/employees/{id}/status.
+// terminationDate is required when status is "Terminated", otherwise null.
+export type ChangeEmployeeStatusRequest = {
+  status: EmployeeStatus;
+  terminationDate: string | null; // "yyyy-MM-dd"
+  rowVersion: string;
+};
+
 // Columns the backend allows sorting by (its sort allow-list).
 export type EmployeeSortBy = "lastName" | "firstName" | "employeeNumber" | "hireDate" | "createdAt";
 export type SortDirection = "asc" | "desc";

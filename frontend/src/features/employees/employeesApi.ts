@@ -15,6 +15,7 @@
 
 import { api, API_V1 } from "@/services/api";
 import type {
+  ChangeEmployeeStatusRequest,
   CreateEmployeeRequest,
   Employee,
   EmployeeListParams,
@@ -99,6 +100,20 @@ export const employeesApi = api.injectEndpoints({
       invalidatesTags: (_result, error, { id }) =>
         error ? [] : [{ type: "Employee", id }, EMPLOYEE_LIST, DEPARTMENT_LIST],
     }),
+
+    // PATCH /api/v1/employees/{id}/status: Active / OnLeave / Terminated.
+    // PATCH = change ONE aspect of the resource, here just its lifecycle state.
+    changeEmployeeStatus: build.mutation<Employee, { id: number } & ChangeEmployeeStatusRequest>({
+      query: ({ id, ...body }) => ({
+        url: `${API_V1}/employees/${id}/status`,
+        method: "PATCH",
+        body,
+      }),
+      // Refetch this employee (the edit page gets the new status and the NEW
+      // rowVersion) and every list (status column, status filter, and the
+      // manager picker, which only offers Active employees).
+      invalidatesTags: (_result, error, { id }) => (error ? [] : [{ type: "Employee", id }, EMPLOYEE_LIST]),
+    }),
   }),
 });
 
@@ -109,4 +124,5 @@ export const {
   useGetEmployeeQuery,
   useCreateEmployeeMutation,
   useUpdateEmployeeMutation,
+  useChangeEmployeeStatusMutation,
 } = employeesApi;
